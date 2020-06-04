@@ -239,7 +239,8 @@ static __inline void handle_got_cfis(void)
 		{
 			//command type이 저장됨	
 			SETREG(SATA_INSERT_EQ_W, 1);	// The contents of SATA_LBA and SATA_SECT_CNT are inserted into the event queue as a write command.
-			reg_dump();
+			if (pid != 0)
+				reg_dump();
 			queue_push(lba, sector_count, 1, H2D_sgx_param);	//key
 			
 			if (cmd_code == ATA_WRITE_DMA || cmd_code == ATA_WRITE_DMA_EXT || PV_is_cmd(cmd_code))
