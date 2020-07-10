@@ -29,7 +29,7 @@
 //----------------------------------
 // macro
 //----------------------------------
-#define NO_BACKUP_BLOCK 0xFFFFFFFF
+#define INIT_BACKUP_WRITE_PTR 0xFFFFFFFF
 #define VC_MAX 0xCDCD
 #define VC_FREE 0xCECE
 #define VC_BACKUP 0xCFCF
@@ -687,7 +687,7 @@ static void move_to_backup_zone(UINT32 const bank, UINT32 const vpn, UINT32 cons
     if (old_vpn != NULL) 
     {
         // i = 0 is for the victim page (first page in the 'broken chain')
-        i = 1;
+
         old_vpn_temp = old_vpn;
         
         // Get all the backed up chains
@@ -711,34 +711,24 @@ static void move_to_backup_zone(UINT32 const bank, UINT32 const vpn, UINT32 cons
             // no following page in the chain
             if (lpn_next != lpn)
                 break;
-            // uart_printf("lpn=%d lpn_tmp:%d old_vpn=%d, written time=%d reservationtime=%d\n",lpn,lpn_temp[page_num],old_vpn,written_time,reservation_time);
 
-            // need to temporarily push in stack to save data reversely later on
-            old_vpn_stack[i] = old_vpn_next;
-            written_time_stack[i] = written_time_next;
-            backup_id_stack[i++] = backup_id_next;
-
-            UINT8 bmp_byte = read_dram_8(RECLAIMABILITY_BMP_ADDR + (old_vpn_next / 8));
-                
-            // if bmp_result == 0 then not reclaimable (need to check if it's expired or not!)
-            // if bmp_result == 1 then reclaimable
-            UINT8 bmp_tst_result = (bmp_byte >> (8 - old_vpn_next % 8)) & 0x01;           
-
-            if (bmp_tst_result)
+            // if tst_bit_dram == 1 then reclaimable
+            // if tst_bit_dram == 0 then not reclaimable (need to check if it's expired or not!)
+            if (tst_bit_dram(RECLAIMABILITY_BMP_ADDR + (old_vpn_next / 8), (old_vpn_next % 8)) == 1) // if reclaimable
                 break;
 
-            if (backup_id_next != DO_REATIN)
+            // Originally, we need to compare the time 
+            // but we just look if it has any policy for now
+            if (backup_id_next == NULL)
             {
-                bmp_byte = read_dram_8(FLUSH_MAP_ADDR + old_vpn_next / 8);
-                bmp_byte = bmp_byte | (0x80 >> (old_vpn_next % 8));
-                write_dram_8(FLUSH_MAP_ADDR + old_vpn_next / 8, bmp_byte);
+                set_bit_dram(RECLAIMABILITY_BMP_ADDR + old_vpn_stack[chain_len] / 8, old_vpn_stack[chain_len] % 8);
                 break;
             }
 
-            ///////////////////////////
-            // probably calculate delay for compression, here
-            ///////////////////////////
-
+            // need to temporarily push in stack to save data reversely later on
+            old_vpn_stack[++i] = old_vpn_next;
+            written_time_stack[i] = written_time_next;
+            backup_id_stack[i] = backup_id_next;
 
             // for the next page read
             old_vpn_temp = old_vpn_next;          
@@ -766,9 +756,9 @@ static void move_to_backup_zone(UINT32 const bank, UINT32 const vpn, UINT32 cons
         }
         else 
         {
-            // do delta compression(give a delay of average delta compression)  
+            // Give Compression Delay Here!
             // ptimer_delay(10000);
-            // ptimer_record();
+
             delta_write_offset[bank]++;
             set_bit_dram(RECLAIMABILITY_BMP_ADDR + old_vpn_stack[chain_len] / 8, old_vpn_stack[chain_len] % 8);
         }
@@ -955,17 +945,14 @@ static UINT32 assign_new_backup_write_vpn(UINT32 const bank)
     // get write vpn pointer from metadata of each bank
     write_vpn = get_cur_backup_write_vpn(bank);
     
-    vblock = write_vpn / PAGES_PER_BLK;
-
     // need to improve!
     // initial condition
-    if (write_vpn == NO_BACKUP_BLOCK) 
+    if (write_vpn == INIT_BACKUP_WRITE_PTR) 
     {
         // uart_print("need to search initial free block for backup zone");
         
         // DATA BLOCK # > META BLOCK #
         // uart_printf("META_BLKS_PER_BLK is %d", META_BLKS_PER_BANK);
-        
         vblock = META_BLKS_PER_BANK;
         do
         {
@@ -973,6 +960,8 @@ static UINT32 assign_new_backup_write_vpn(UINT32 const bank)
         } while (get_vcount(bank, vblock) != VC_FREE);
        
     }
+
+    vblock = write_vpn / PAGES_PER_BLK;
 
     // NOTE: if next current write page's offset is
     // the last page offset of vblock (i.e. PAGES_PER_BLK - 1),
@@ -1210,7 +1199,7 @@ static void init_metadata_sram(void)
         //----------------------------------------
         // For initial backup_write_vpn
         //----------------------------------------        
-        set_new_backup_write_vpn(bank, NO_BACKUP_BLOCK);
+        set_new_backup_write_vpn(bank, INIT_BACKUP_WRITE_PTR);
         uart_printf("bank : %d backup ptr : %x", bank, g_misc_meta[bank].cur_backup_write_vpn);
     }
 }
@@ -1904,7 +1893,7 @@ static void init_free_blk_pool (free_blk_pool* f_pool) {
     for (i=0; i<MAX_FREE_BLKS; i++)   
         f_pool->array[i] = NULL;
 }
-  
+
 /* Further Implementation */
 
 // PV_ftl_recovery
