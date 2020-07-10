@@ -24,6 +24,8 @@ void led_blink(void);
 void test_nand_blocks(void);
 void start_interval_measurement(UINT32 const timer, UINT32 const prescale);
 void start_timer(UINT32 const timer, UINT32 const prescale, UINT32 const init_val);
+UINT32 ptimer_record(void);
+
 #if OPTION_UART_DEBUG
 void ptimer_start(void);
 void ptimer_stop_and_uart_print(void);

@@ -328,6 +328,20 @@ void start_timer(UINT32 const timer, UINT32 const prescale, UINT32 const init_va
 	SET_TIMER_CONTROL(timer, TM_ENABLE | TM_BIT_32 | TM_MODE_PRD | TM_INTR | prescale);
 }
 
+UINT32 ptimer_record(void)
+{
+	UINT32 rtime;
+	char buf[21];
+
+	rtime = 0xFFFFFFFFF - GET_TIMER_VALUE(TIMER_CH1);
+	rtime = (UINT32)((UINT64)rtime * 2 * 1000000 * PRESCALE_TO_DIV(TIMER_PRESCALE_0) / CLOCK_SPEED);
+	rtime /= 1000;
+
+	uart_printf("cur elapsed time is %d\n", rtime);
+
+	return rtime;
+}
+
 // @splim
 #if OPTION_UART_DEBUG
 
