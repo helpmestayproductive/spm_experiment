@@ -89,22 +89,24 @@ ATR_NO_SECT|ATR_LBA_EXT	| 	CCL_OTHER,			// 0x37	Set Max Address Ext
 			ATR_LBA_NOR	| 	CCL_OTHER,			// 0x40	Read Verify Sectors
 							CCL_UNDEFINED,		// 0x41
 			ATR_LBA_EXT	| 	CCL_OTHER,			// 0x42	Read Verify Sectors Ext
-							CCL_UNDEFINED,		// 0x43 //DiskShield Write CMD
-			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x44 DS_CREATE_WR //왼쪽에 어떤값을 넣을지 반드시 결정해줘야한다. READ 또는 WRITE만 들어갈예정.
-			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x45 DS_OPEN_WR	
-			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x46 DS_CLOSE_WR
-			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x47 DS_REMOVE_WR
-			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x48 DS_WRITE_WR	//DMA_WRITE와 같다. 
-							CCL_UNDEFINED,		// 0x49 DS_WR_RANGE_MAX //DMA_READ와 같다.
-							CCL_UNDEFINED,		// 0x4A DS_RD_RANGE_MIN // READ_AFTER_WRITE 잘 들어갔는지 인증하기 위함.
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4B DS_READ_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4C DS_AUTH_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4D DS_CREATE_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4E DS_OPEN_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4F DS_CLOSE_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x50 DS_REMOVE_RD
-			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x51 DS_WRITE_RD
-							CCL_UNDEFINED,		// 0x52 DS_RD_RANGE_MAX
+							CCL_UNDEFINED,		// 0x43 
+							CCL_UNDEFINED,		// 0x44 
+							CCL_UNDEFINED,		// 0x45 	
+							CCL_UNDEFINED,		// 0x46 
+							CCL_UNDEFINED,		// 0x47 
+			
+			ATR_LBA_NOR |	CCL_FTL_H2D,		// 0x48 PV_SSD write command(NOR)
+			ATR_LBA_EXT |	CCL_FTL_H2D,		// 0x49 PV_SSD write command(EXT)
+			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4A PV_SSD recovery command(NOR)
+			ATR_LBA_EXT |	CCL_FTL_D2H,		// 0x4B PV_SSD recovery command(EXT)
+			ATR_LBA_NOR |	CCL_FTL_D2H,		// 0x4C PV_SSD all recovery command(NOR)
+			ATR_LBA_EXT |	CCL_FTL_D2H,		// 0x4D PV_SSD all recovery command(EXT)
+
+							CCL_UNDEFINED,		// 0x4E
+							CCL_UNDEFINED,		// 0x4F
+							CCL_UNDEFINED,		// 0x50
+							CCL_UNDEFINED,		// 0x51
+							CCL_UNDEFINED,		// 0x52
 							CCL_UNDEFINED,		// 0x53
 							CCL_UNDEFINED,		// 0x54
 							CCL_UNDEFINED,		// 0x55

@@ -62,30 +62,7 @@ extern const UINT8 ata_cmd_class_table[];
 extern const UINT8 ata_index_table[];
 extern const UINT8 ata_command_code_table[];
 extern const ATA_FUNCTION_T ata_function_table[];
-//extern UINT32 H2D_key;
-//extern SGX_PARAM sgx_param;
-//key software event queue
-//SGX data parameter
 
-typedef struct SGX_LBA{
-	//UINT8 enclave_id;
-	//UINT8 file_id;
-	UINT32 fid;
-	union addr{
-	UINT32 offset;
-	UINT32 lpn;	
-	}addr;
-}SGX_LBA;
-/*
-//LA : Logical Address
-typedef struct SGX_LA{
-	UINT32 fid;
-	union addr{
-		UINT64 position;
-		UINT32 lpn;
-	}addr;
-}SGX_LA;
-*/
 typedef struct SGX_PARAM{
 	UINT8 cmd;
 	UINT32 pid;
@@ -95,7 +72,7 @@ typedef struct event_queue{
 	UINT32 lba;				//sgx라면 offset 마지막 4바이트 들어감
 	UINT32 sector_count;	
 	UINT32 cmd_type;			//SGX라면 offset(MSB 2B)|cmd(1B)가 들어감
-	UINT32 sgx_fd;	// SGX라면 fid가 들어감 //geral file이라면 0으로 초기화.
+	UINT32 r_meta;	// SGX라면 fid가 들어감 //geral file이라면 0으로 초기화.
 } EVENT_Q;
 
 #define Q_SIZE 128
@@ -125,10 +102,11 @@ void ata_srst(UINT32 lba, UINT32 sector_count);
 
 //DiskShield Code
 
-UINT8 DS_is_cmd(int cmd_code);
-UINT8 DS_is_write_cmd(int cmd_code);
-UINT8 DS_is_read_cmd(int cmd_code);
-UINT8 DS_convert_RD_cmd(int cmd_code);
-UINT8 PV_is_cmd(int cmd_code);
+UINT8 is_PV_cmd(int cmd_code);
+UINT8 is_PV_recovery_cmd(int cmd_code);
+UINT8 is_PV_write_cmd(int cmd_code);
+UINT8 is_PV_policy_update(int cmd_code);
+
+
 
 #endif	// SATA_CMD_H

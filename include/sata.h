@@ -152,13 +152,22 @@ enum
 	ATA_READ_VERIFY_SECTORS			= 0x40, /* Read Verify Sectors		 */
 	ATA_READ_VERIFY_SECTORS_EXT		= 0x42, /* Read Verify Sectors Ext	 */
 	
-	/*[PV-SSD] Command*/
+	/* [PV-SSD] Command */
+	PV_WRITE_NOR			= 0x48, /* PV-Write with File Metadata*/
+	PV_WRITE_EXT			= 0x49, 
+	
+	PV_RECOVERY_NOR				= 0x4A, /* PV-Recovery with fid and lba */
+	PV_RECOVERY_EXT				= 0x4B, 
+	PV_RECOVERY_ALL_NOR			= 0x4C, /* PV-Recovery_all with only fid */
+	PV_RECOVERY_ALL_EXT			= 0x4D, 
+
 	PV_CREATE						= 0x65, 
 	PV_CHANGE						= 0x66, 
 	PV_DELETE						= 0x67, 
 	PV_RECOVERY						= 0x68, 
 	PV_WRITE						= 0x69, 
-	
+	/* [PV-SSD] Command */
+
 	ATA_READ_FPDMA_QUEUED			= 0x60,	/* Read FPDMA Queued		 */
 	ATA_WRITE_FPDMA_QUEUED			= 0x61,	/* Write FPDMA Queued		 */
 	ATA_EXEDIAG						= 0x90,	/* Execute Drive Diagnostics */

@@ -30,11 +30,25 @@ UINT32 eveq_front;
 UINT32 eveq_rear;
 UINT32 eveq_size=0;
 EVENT_Q eve_q[Q_SIZE];
-
-UINT8 PV_is_cmd(int cmd_code)
+	
+UINT8 is_PV_cmd(int cmd_code)
 {
-	//if(cmd_code >= DS_CREATE && cmd_code <= DS_AUTH)
-	return (cmd_code >= POLICY_CREATE && cmd_code <= POLICY_RECOVERY);
+	return (cmd_code >= PV_WRITE_NOR && cmd_code <= PV_RECOVERY);
+}
+
+UINT8 is_PV_recovery_cmd(int cmd_code)
+{
+	return (cmd_code >= PV_RECOVERY_NOR && cmd_code <= PV_RECOVERY_ALL_EXT);
+}
+
+UINT8 is_PV_write_cmd(int cmd_code)
+{
+	return (cmd_code == PV_WRITE_EXT || cmd_code == PV_WRITE_NOR);
+}
+
+UINT8 is_PV_policy_update(int cmd_code)
+{
+	return (cmd_code >= PV_CREATE && cmd_code <= PV_DELETE);
 }
 
 void reg_dump () {
@@ -127,7 +141,8 @@ static __inline UINT32 queue_isFull()
 	return ((eveq_rear+1)%Q_SIZE == eveq_front);
 }
 
-static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type, SGX_PARAM sgx_param)
+// static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type, UINT32 recv_meta)
+static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type, UINT32 r_meta)
 {
 	if(eveq_init==1)
 	{
@@ -142,15 +157,17 @@ static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type
 		
 		eve_q[eveq_rear].lba=lba;
 		eve_q[eveq_rear].sector_count = sector_count;
-		// *((UINT32*)DS_VA_to_PA(&eve_q[eveq_rear].cmd_type))=cmd_type;
-		if (cmd_type == 0)
-			eve_q[eveq_rear].cmd_type = cmd_type;
+		eveq[eveq_rear].cmd_type = cmd_type;
+		eve_q[eveq_rear].r_meta = r_meta;
+		
+		if (cmd_type == WRITE || cmd_type == READ) {
+				
+		}
 		else
 			eve_q[eveq_rear].cmd_type = sgx_param.cmd;
 			
-		eve_q[eveq_rear].sgx_fd = 0;
 
-		eveq_rear = (eveq_rear+1) % Q_SIZE;
+		eveq_rear = (eveq_rear + 1) % Q_SIZE;
 		eveq_size++;
 		SETREG(SATA_EQ_STATUS, ((eveq_size) & 0xFF)<<16);
 	}
@@ -163,19 +180,18 @@ static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type
 //DS SATA로부터 커맨드 받아온다.
 static __inline void handle_got_cfis(void)
 {
-	UINT32 lba, sector_count, cmd_code, cmd_type, fis_d1, fis_d3;
-	UINT32 pid;
-	SGX_PARAM H2D_sgx_param;
+	UINT32 lba, sector_count, cmd_code, cmd_type, fis_d1, fis_d3;	
+	UINT32 r_meta; // recovery metadata
 
 	cmd_code = (GETREG(SATA_FIS_H2D_0) & 0x00FF0000) >> 16;
 	cmd_type = ata_cmd_class_table[cmd_code];
 	fis_d1 = GETREG(SATA_FIS_H2D_1);
 	fis_d3 = GETREG(SATA_FIS_H2D_3);
-	pid = GETREG(SATA_FIS_H2D_4);
-	// H2D_sgx_param.fid = GEN_FILE;
-	H2D_sgx_param.cmd = cmd_code; 
-	H2D_sgx_param.pid = pid; 
+	r_meta = NULL;
 
+	if (is_PV_recovery_cmd(cmd_code))
+		// fid(MSB 2 bytes) + time(LSB2 bytes)
+		r_meta = GETREG(SATA_FIS_H2D_4);
 
 	uart_printf("handle_got_cfis :: cmd_code : %x\n", cmd_code);
 	
@@ -193,7 +209,6 @@ static __inline void handle_got_cfis(void)
 		else
 		{
 			lba = fis_d1 & 0x0FFFFFFF;
-		//	uart_printf("CMD_MODE 3.5contiguous flag:%x, lba:%x",H2D_sgx_param.flag, lba);
 		}
 
 		sector_count = fis_d3 & 0x000000FF;
@@ -206,7 +221,6 @@ static __inline void handle_got_cfis(void)
 	//기본적인 4byte LBA
 	else if (cmd_type & ATR_LBA_EXT)
 	{
-		//uart_printf("CMD_MODE general-~32bit");
 		lba = (fis_d1 & 0x00FFFFFF) | (GETREG(SATA_FIS_H2D_2) << 24);
 		sector_count = fis_d3 & 0x0000FFFF;
 
@@ -224,7 +238,6 @@ static __inline void handle_got_cfis(void)
 
 	if (lba + sector_count > MAX_LBA + 1 && (cmd_type & ATR_NO_SECT) == 0)
 	{
-		uart_print("INTERRUPT : lba boundary ");
 		send_status_to_host(B_IDNF);
 	}
 
@@ -235,33 +248,35 @@ static __inline void handle_got_cfis(void)
 		SETREG(SATA_SECT_CNT, sector_count);
 
 		
-		if (cmd_type & CCL_FTL_H2D)	//WRITE
+		if (cmd_type & CCL_FTL_H2D)	// WRITE Command (Host to Device)
 		{
+			// if (pid != 0)
+			// 	reg_dump();
+
 			//command type이 저장됨	
 			SETREG(SATA_INSERT_EQ_W, 1);	// The contents of SATA_LBA and SATA_SECT_CNT are inserted into the event queue as a write command.
-			if (pid != 0)
-				reg_dump();
-			queue_push(lba, sector_count, 1, H2D_sgx_param);	//key
+
+			if(is_PV_cmd(cmd_code))
+				queue_push(lba, sector_count, cmd_code, NULL);
+			else
+				queue_push(lba, sector_count, WRITE, NULL);
 			
-			if (cmd_code == ATA_WRITE_DMA || cmd_code == ATA_WRITE_DMA_EXT || PV_is_cmd(cmd_code))
+			if (cmd_code == ATA_WRITE_DMA || cmd_code == ATA_WRITE_DMA_EXT || is_PV_cmd(cmd_code))
 			{
 				action_flags = DMA_WRITE | COMPLETE;
 			}
 			else
 			{
-				//uart_printf("SATA REGISTER FIS RESET");
 				UINT32 fis_type = FISTYPE_PIO_SETUP;
 				UINT32 flags = B_IRQ;
 				UINT32 status = B_DRDY | BIT4 | B_DRQ;
 				UINT32 e_status = B_DRDY | BIT4;
 
-				//response 날라갈듯.
 				SETREG(SATA_FIS_D2H_0, fis_type | (flags << 8) | (status << 16));
 				SETREG(SATA_FIS_D2H_1, GETREG(SATA_FIS_H2D_1));
 				SETREG(SATA_FIS_D2H_2, GETREG(SATA_FIS_H2D_2) & 0x00FFFFFF);
 				SETREG(SATA_FIS_D2H_3, (e_status << 24) | (GETREG(SATA_FIS_H2D_3) & 0x0000FFFF));
 				SETREG(SATA_FIS_D2H_4, BYTES_PER_SECTOR);
-
 				SETREG(SATA_FIS_D2H_LEN, 5);
 
 				action_flags = PIO_WRITE | COMPLETE;
@@ -270,7 +285,11 @@ static __inline void handle_got_cfis(void)
 		else
 		{
 			SETREG(SATA_INSERT_EQ_R, 1);	// The contents of SATA_LBA and SATA_SECT_CNT are inserted into the event queue as a read command.
-			queue_push(lba, sector_count, 0, H2D_sgx_param);	//key
+
+			if (is_PV_recovery_cmd(cmd_code))
+				queue_push(lba, sector_count, cmd_code, r_meta);	// Recovery
+			else
+				queue_push(lba, sector_count, READ, NULL);	// Normal Read
 		
 			//DiskShield command
 			if (cmd_code == ATA_READ_DMA || cmd_code == ATA_READ_DMA_EXT)

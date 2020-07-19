@@ -33,10 +33,17 @@
 #define MAC_SIZE 32
 #define MAX_FREE_BLKS 10
 
-#define POLICY_CREATE 0x65
-#define POLICY_CHANGE (POLICY_CREATE+1)
-#define POLICY_DELETE (POLICY_CHANGE+1)
-#define POLICY_RECOVERY (POLICY_DELETE+1)
+#define PV_WRITE_NOR 0x48
+#define PV_WRITE_EXT 0x49
+#define PV_RECOVERY_NOR	0x4A
+#define PV_RECOVERY_EXT 0x4B 
+#define PV_RECOVERY_ALL_NOR	0x4C
+#define PV_RECOVERY_ALL_EXT	0x4D 
+
+#define PV_CREATE 0x65
+#define PV_CHANGE (PV_CREATE+1)
+#define PV_DELETE (PV_CHANGE+1)
+#define PV_RECOVERY (PV_DELETE+1)
 
 struct policy_metadata
 {
@@ -44,6 +51,13 @@ struct policy_metadata
     UINT32 ret_time;
     UINT32 backup_cycle;
     UINT32 num_version;
+};
+
+struct file_metadata
+{
+    UINT32 pid;
+    UINT32 fid;
+    UINT32 offset;
 };
 
 typedef struct _free_blk_pool 
@@ -149,12 +163,13 @@ typedef struct _free_blk_pool
 
 void ftl_open(void);
 void ftl_read(UINT32 const lba, UINT32 const num_sectors);
-void ftl_write(UINT32 const lba, UINT32 const num_sectors, UINT32 const pid);
+// void ftl_write(UINT32 const lba, UINT32 const num_sectors, UINT32 const pid);
+void ftl_write(UINT32 const lba, UINT32 const num_sectors, const struct file_metadata f);
 void ftl_test_write(UINT32 const lba, UINT32 const num_sectors);
 void ftl_flush(void);
 void ftl_isr(void);
 
-void PV_ftl_policy_update (struct policy_metadata p_info, UINT32 const cmd_type);
+void ftl_policy_update (struct policy_metadata p_info, UINT32 const cmd_type);
 void print_policy (struct policy_metadata policy);
 
 #endif //FTL_H
