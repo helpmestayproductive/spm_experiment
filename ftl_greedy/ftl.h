@@ -27,11 +27,10 @@
 /////////////////
 // Define for PV-SSD
 /////////////////
-#define GC_TRIGGER_THRESHOLD 10
-#define GC_FINISH_THRESHOLD 100
-
 #define MAC_SIZE 32
 #define MAX_FREE_BLKS 10
+#define NUM_BUCKETS 5
+#define MAX_CHAIN_LEN 5
 
 #define PV_WRITE_NOR 0x48
 #define PV_WRITE_EXT 0x49
@@ -60,6 +59,22 @@ struct file_metadata
     UINT32 offset;
 };
 
+#if OPTION_COMPRESSION_ON
+#define MAX_PAGES_IN_DELTA 5
+#else
+#define MAX_PAGES_IN_DELTA 1
+#endif
+
+struct delta_header
+{
+    UINT32 prev_vpn;
+    UINT32 lpn[5];
+    UINT32 WT[5];
+    UINT32 pid[5];
+    UINT32 fid[5];
+    UINT32 offset[5];
+};
+
 typedef struct _free_blk_pool 
 { 
     UINT32 front, rear, size; 
@@ -80,7 +95,8 @@ typedef struct _free_blk_pool
 
 #define DRAM_BYTES_OTHER ((NUM_COPY_BUFFERS + NUM_FTL_BUFFERS + NUM_HIL_BUFFERS + NUM_TEMP_BUFFERS) * BYTES_PER_PAGE \
                          + BAD_BLK_BMP_BYTES + PAGE_MAP_BYTES + VCOUNT_BYTES + FLUSH_MAP_BYTES + RECLAIMABILITY_BMP_BYTES \
-                         + BACKUP_ZONE_BMP_BYTES + BACKUP_ZONE_LPN_BYTES + BACKUP_DELTA_BUFFER_BYTES + BACKUP_POLICY_BMP_BYTES)
+                         + BACKUP_ZONE_BMP_BYTES + BACKUP_PAGE_MAP_BYTES + BACKUP_DELTA_BUFFER_BYTES + BACKUP_CONTENT_TEMP_BYTES \
+                         +BACKUP_POLICY_BMP_BYTES)
 
 #define WR_BUF_PTR(BUF_ID) (WR_BUF_ADDR + ((UINT32)(BUF_ID)) * BYTES_PER_PAGE)
 #define WR_BUF_ID(BUF_PTR) ((((UINT32)BUF_PTR) - WR_BUF_ADDR) / BYTES_PER_PAGE)
@@ -146,16 +162,22 @@ typedef struct _free_blk_pool
 #define BACKUP_ZONE_BMP_BYTES (((NUM_VBLKS / 8) + DRAM_ECC_UNIT - 1) / DRAM_ECC_UNIT * DRAM_ECC_UNIT)
 
 // Backup zone start address for each lpn
-#define BACKUP_ZONE_LPN_MAP (BACKUP_ZONE_BMP_ADDR + BACKUP_ZONE_BMP_BYTES)
-#define BACKUP_ZONE_LPN_BYTES ((NUM_LPAGES * sizeof(UINT32) + BYTES_PER_SECTOR - 1) / BYTES_PER_SECTOR * BYTES_PER_SECTOR)
+#define BACKUP_PAGE_MAP_ADDR (BACKUP_ZONE_BMP_ADDR + BACKUP_ZONE_BMP_BYTES)
+#define BACKUP_PAGE_MAP_BYTES ((NUM_LPAGES * sizeof(UINT32) + BYTES_PER_SECTOR - 1) / BYTES_PER_SECTOR * BYTES_PER_SECTOR)
 
 // Delta Buffer
-#define BACKUP_DELTA_BUFFER_ADDR (BACKUP_ZONE_LPN_MAP + BACKUP_ZONE_LPN_BYTES)
-#define BACKUP_DELTA_BUFFER_BYTES ((BYTES_PER_PAGE + DRAM_ECC_UNIT - 1) / DRAM_ECC_UNIT * DRAM_ECC_UNIT) // Byte allignment
+#define BACKUP_DELTA_BUFFER_ADDR (BACKUP_PAGE_MAP_ADDR + BACKUP_PAGE_MAP_BYTES)
+#define BACKUP_DELTA_BUFFER_BYTES (((NUM_BUCKETS * BYTES_PER_PAGE) + DRAM_ECC_UNIT - 1) / DRAM_ECC_UNIT * DRAM_ECC_UNIT) // Byte allignment
+
+// Temporary Content Buffer
+#define BACKUP_CONTENT_TEMP_ADDR (BACKUP_DELTA_BUFFER_ADDR + BACKUP_DELTA_BUFFER_BYTES)
+#define BACKUP_CONTENT_TEMP_BYTES (((MAX_CHAIN_LEN * BYTES_PER_PAGE) + DRAM_ECC_UNIT - 1) / DRAM_ECC_UNIT * DRAM_ECC_UNIT) // Byte allignment
 
 // Backup Policy Map if a given logical page has policy or not
-#define BACKUP_POLICY_BMP_ADDR (BACKUP_DELTA_BUFFER_ADDR + BACKUP_DELTA_BUFFER_BYTES)
+#define BACKUP_POLICY_BMP_ADDR (BACKUP_CONTENT_TEMP_ADDR + BACKUP_CONTENT_TEMP_BYTES)
 #define BACKUP_POLICY_BMP_BYTES (((NUM_LPAGES / 8) + DRAM_ECC_UNIT - 1) / DRAM_ECC_UNIT * DRAM_ECC_UNIT)
+
+
 
 ///////////////////////////////
 // FTL public functions
@@ -164,7 +186,7 @@ typedef struct _free_blk_pool
 void ftl_open(void);
 void ftl_read(UINT32 const lba, UINT32 const num_sectors);
 // void ftl_write(UINT32 const lba, UINT32 const num_sectors, UINT32 const pid);
-void ftl_write(UINT32 const lba, UINT32 const num_sectors, const struct file_metadata f);
+void ftl_write(UINT32 const lba, UINT32 const num_sectors, struct file_metadata const f);
 void ftl_test_write(UINT32 const lba, UINT32 const num_sectors);
 void ftl_flush(void);
 void ftl_isr(void);

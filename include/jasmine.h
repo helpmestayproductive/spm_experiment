@@ -32,6 +32,9 @@
 #define OPTION_SUPPORT_NCQ		0	// 1 = support SATA NCQ (=FPDMA) for AHCI hosts, 0 = support only DMA mode
 #define OPTION_REDUCED_CAPACITY	0	// reduce the number of blocks per bank for testing purpose
 
+/* [PV-SSD] Compression for Write Amplication */
+#define OPTION_COMPRESSION_ON 1 // 1 = Compression on, 0 = Compression off
+
 #define CHN_WIDTH			2 	// 2 = 16bit IO
 #define NUM_CHNLS_MAX		4
 #define BANKS_PER_CHN_MAX	8

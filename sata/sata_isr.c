@@ -160,12 +160,10 @@ static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type
 		eveq[eveq_rear].cmd_type = cmd_type;
 		eve_q[eveq_rear].r_meta = r_meta;
 		
-		if (cmd_type == WRITE || cmd_type == READ) {
-				
-		}
-		else
-			eve_q[eveq_rear].cmd_type = sgx_param.cmd;
-			
+		// if (cmd_type == WRITE || cmd_type == READ) {
+		// }
+		// else
+		// 	eve_q[eveq_rear].cmd_type = sgx_param.cmd;	
 
 		eveq_rear = (eveq_rear + 1) % Q_SIZE;
 		eveq_size++;

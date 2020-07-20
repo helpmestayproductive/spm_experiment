@@ -144,20 +144,17 @@ void Main(void)
 			else if (cmd.cmd_type == WRITE)
 				ftl_write (cmd.lba, cmd.sector_count, NULL);
 
-			else if (is_PV_recovery_cmd(cmd.cmd_type)) // PV-SSD CMD
-				PV_recovery (cmd.lba, cmd.sector_count, cmd.cmd_type);
+			else if (is_PV_recovery_cmd(cmd.cmd_type)) // PV-SSD Recovery with r_meta
+				PV_recovery (cmd.lba, cmd.sector_count, cmd.cmd_type, r_meta);
 
-			else if (is_PV_write_cmd (cmd.cmd_type))
+			else if (is_PV_write_cmd (cmd.cmd_type)) // PV-SSD Write with meta through DATA FIS
 				PV_write (cmd.lba, cmd.sector_count);
 
-			else if (is_PV_policy_update(cmd.cmd_type))
+			else if (is_PV_policy_update(cmd.cmd_type)) // PV-SSD Control Flow (Policy Update)
 				PV_policy_update (cmd.lba, cmd.sector_count, cmd.cmd_type);
-				
-			else
-			{
-				// Invalid CMD TYPE, probably a bug
+
+			else // Invalid CMD TYPE, probably a bug
 				uart_printf("Invalid CMD_TYPE 0x%x", cmd.cmd_type);
-			}
 		}
 		else if (g_sata_context.slow_cmd.status == SLOW_CMD_STATUS_PENDING)
 		{
@@ -300,34 +297,21 @@ static void PV_write (UINT32 const lba, UINT32 const sect_count)
 	// 1. Get Write buffer Address First
 	UINT32 *piggyback_set = PV_extract_writebuf (lba, 0);
 
-	// Parsing the data from the base address of piggybacked set
+	// 2. Parsing the data from the base address of piggybacked set
 	f_data.pid = read_dram_32((UINT32)piggyback_set);
 	f_data.fid = read_dram_32((UINT32)(&piggyback_set[1]));
 	f_data.offset = read_dram_32((UINT32)(&piggyback_set[2]));
 
-	uart_printf("pid/fid/offset : %d / %d / %d", f_data.pid, f_data.fid, f_data.offset);
+	uart_printf("pid / fid / offset : %d / %d / %d", f_data.pid, f_data.fid, f_data.offset);
 
 	// A page after the first page is real data to be written into flash
 	while (g_ftl_write_buf_id == GETREG(SATA_WBUF_PTR));
 	g_ftl_write_buf_id = (g_ftl_write_buf_id + 1) % NUM_WR_BUFFERS; // Circular buffer
 
+	// 3. Write page with metadata
 	ftl_write(cmd.lba, cmd.sector_count - SECTORS_PER_PAGE, f_data);
 
 	uart_print("PV_SSD Write Done!");
-
-	/* 
-	// Buffer Pointer Management
-	if(data_end % SECTORS_PER_PAGE == 0) // If the additional sector is across two pages
-	{	// Do the same thing with PV_policy_update ()
-		flash_finish();
-		while (g_ftl_write_buf_id == GETREG(SATA_WBUF_PTR));
-
-		g_ftl_write_buf_id = (g_ftl_write_buf_id + 1) % NUM_WR_BUFFERS;
-
-		SETREG(BM_STACK_WRSET, g_ftl_write_buf_id);
-		SETREG(BM_STACK_RESET, 0x01);
-	}
-	*/
 }
 
 static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type, UINT32 const r_meta) {
