@@ -185,8 +185,7 @@ typedef struct _free_blk_pool
 
 void ftl_open(void);
 void ftl_read(UINT32 const lba, UINT32 const num_sectors);
-// void ftl_write(UINT32 const lba, UINT32 const num_sectors, UINT32 const pid);
-void ftl_write(UINT32 const lba, UINT32 const num_sectors, struct file_metadata const f);
+void ftl_write(UINT32 const lba, UINT32 const num_sectors, struct file_metadata f);
 void ftl_test_write(UINT32 const lba, UINT32 const num_sectors);
 void ftl_flush(void);
 void ftl_isr(void);

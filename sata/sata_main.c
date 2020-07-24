@@ -44,7 +44,7 @@ extern UINT32 eveq_size;
 static void HMAC_DELAY(int utime);
 static void PV_policy_update(UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type);
 static void PV_write (UINT32 const lba, UINT32 const sect_count);
-static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type);
+static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type, UINT32 const r_meta);
 static UINT32* PV_extract_writebuf (const UINT32 lba, const UINT32 num_page);
 
 static UINT32 queue_isEmpty()
@@ -142,7 +142,7 @@ void Main(void)
 				ftl_read (cmd.lba, cmd.sector_count);
 
 			else if (cmd.cmd_type == WRITE)
-				ftl_write (cmd.lba, cmd.sector_count, NULL);
+				ftl_write (cmd.lba, cmd.sector_count, null_data);
 
 			else if (is_PV_recovery_cmd(cmd.cmd_type)) // PV-SSD Recovery with r_meta
 				PV_recovery (cmd.lba, cmd.sector_count, cmd.cmd_type, r_meta);
@@ -153,8 +153,8 @@ void Main(void)
 			else if (is_PV_policy_update(cmd.cmd_type)) // PV-SSD Control Flow (Policy Update)
 				PV_policy_update (cmd.lba, cmd.sector_count, cmd.cmd_type);
 
-			else // Invalid CMD TYPE, probably a bug
-				uart_printf("Invalid CMD_TYPE 0x%x", cmd.cmd_type);
+			// else // Invalid CMD TYPE, probably a bug
+				// uart_printf("Invalid CMD_TYPE 0x%x", cmd.cmd_type);
 		}
 		else if (g_sata_context.slow_cmd.status == SLOW_CMD_STATUS_PENDING)
 		{
@@ -250,7 +250,7 @@ void delay(UINT32 const count)
 static void PV_policy_update(UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type)
 {
 	
-	uart_print("PV Policy Update Command!\n");
+	// uart_print("PV Policy Update Command!\n");
 	
 	UINT32 i;
 
@@ -263,16 +263,17 @@ static void PV_policy_update(UINT32 const lba, UINT32 const sect_count, UINT32 c
 	// 1. Get Write buffer Address First
 	data = PV_extract_writebuf(lba, 0);
 
-	p_info.pid 					= read_dram_32(&data[0]);
-	p_info.ret_time 		= read_dram_32(&data[1]);
+	p_info.pid 			= read_dram_32(&data[0]);
+	p_info.ret_time 	= read_dram_32(&data[1]);
 	p_info.backup_cycle = read_dram_32(&data[2]);
 	p_info.num_version 	= read_dram_32(&data[3]);
 
-	uart_printf("pid %d, ret_time %d\n", p_info.pid, p_info.ret_time);
-	uart_printf("backup_cycle %d, num_version %d\n", p_info.backup_cycle, p_info.num_version);
+	// uart_printf("pid %d, ret_time %d\n", p_info.pid, p_info.ret_time);
+	// uart_printf("backup_cycle %d, num_version %d\n", p_info.backup_cycle, p_info.num_version);
 	
 	// MAC Verification Emulating Delay
-	// HMAC_DELAY(3); 
+	if(cmd_type == PV_CHANGE || cmd_type == PV_DELETE)
+		HMAC_DELAY(3); 
 
 	ftl_policy_update (p_info, cmd_type);
 
@@ -300,18 +301,18 @@ static void PV_write (UINT32 const lba, UINT32 const sect_count)
 	// 2. Parsing the data from the base address of piggybacked set
 	f_data.pid = read_dram_32((UINT32)piggyback_set);
 	f_data.fid = read_dram_32((UINT32)(&piggyback_set[1]));
-	f_data.offset = read_dram_32((UINT32)(&piggyback_set[2]));
+	// f_data.offset = read_dram_32((UINT32)(&piggyback_set[2]));
 
-	uart_printf("pid / fid / offset : %d / %d / %d", f_data.pid, f_data.fid, f_data.offset);
+	// uart_printf("pid / fid / offset : %d / %d / %d", f_data.pid, f_data.fid, f_data.offset);
 
 	// A page after the first page is real data to be written into flash
 	while (g_ftl_write_buf_id == GETREG(SATA_WBUF_PTR));
 	g_ftl_write_buf_id = (g_ftl_write_buf_id + 1) % NUM_WR_BUFFERS; // Circular buffer
 
 	// 3. Write page with metadata
-	ftl_write(cmd.lba, cmd.sector_count - SECTORS_PER_PAGE, f_data);
+	ftl_write(lba, sect_count - SECTORS_PER_PAGE, f_data);
 
-	uart_print("PV_SSD Write Done!");
+	// uart_print("PV_SSD Write Done!");
 }
 
 static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const cmd_type, UINT32 const r_meta) {
@@ -320,11 +321,11 @@ static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const
 	UINT32 r_time = r_meta & 0x0000FFFF;
 	UINT32 fid = (r_meta & 0XFFFF0000) >> 16;
 
-	uart_printf("Target Time / fid %x %x", r_time, fid);
+	// uart_printf("Target Time / fid %x %x", r_time, fid);
 
 	UINT8 *offset_pointer = RD_BUF_PTR((g_ftl_read_buf_id) % NUM_RD_BUFFERS) + ((lba % SECTORS_PER_PAGE) * BYTES_PER_SECTOR);
 
-	uart_printf("LBA/size/offset 0x%x/%u/%d", cmd.lba, cmd.sector_count, offset);
+	// uart_printf("LBA/size/offset 0x%x/%u/%d", lba, sect_count, offset);
 	//offset = 0x11111111;
 	write_dram_32((UINT32)offset_pointer, offset);
 	offset += 32768;
@@ -338,7 +339,7 @@ static void PV_recovery (UINT32 const lba, UINT32 const sect_count, UINT32 const
 
 	g_ftl_read_buf_id = next_read_buf_id;
 
-	ftl_read(cmd.lba, cmd.sector_count - SECTORS_PER_PAGE);
+	ftl_read(lba, sect_count - SECTORS_PER_PAGE);
 	//offset = 0x37373737;
 	write_dram_32((UINT32)offset_pointer, offset);	
 
@@ -357,19 +358,19 @@ static UINT32* PV_extract_writebuf (const UINT32 lba, const UINT32 num_page)
 
 
 /* PV-SSD Utility Function */
-// void HMAC_DELAY (int time)
-// {
+void HMAC_DELAY (int time)
+{
    
-//     start_interval_measurement(TIMER_CH1, TIMER_PRESCALE_0); //timer start
-//     UINT32 rtime;
-//     char buf[21];
+    start_interval_measurement(TIMER_CH1, TIMER_PRESCALE_0); //timer start
+    UINT32 rtime;
+    char buf[21];
 
-//     do {
-//         rtime = 0xFFFFFFFF - GET_TIMER_VALUE(TIMER_CH1);
+    do {
+        rtime = 0xFFFFFFFF - GET_TIMER_VALUE(TIMER_CH1);
 			
-// 			  // Tick to us
-//         rtime = (UINT32)((UINT64)rtime * 2 * 1000000 * PRESCALE_TO_DIV(TIMER_PRESCALE_0) / CLOCK_SPEED);
-//     }
-//     while(rtime<time);
+			  // Tick to us
+        rtime = (UINT32)((UINT64)rtime * 2 * 1000000 * PRESCALE_TO_DIV(TIMER_PRESCALE_0) / CLOCK_SPEED);
+    }
+    while(rtime<time);
 
-// }
+}

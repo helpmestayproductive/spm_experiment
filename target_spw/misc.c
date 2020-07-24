@@ -337,7 +337,7 @@ UINT32 ptimer_record(void)
 	rtime = (UINT32)((UINT64)rtime * 2 * 1000000 * PRESCALE_TO_DIV(TIMER_PRESCALE_0) / CLOCK_SPEED);
 	rtime /= 1000;
 
-	uart_printf("cur elapsed time is %d\n", rtime);
+	// uart_printf("cur elapsed time is %d\n", rtime);
 
 	return rtime;
 }

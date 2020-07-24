@@ -52,11 +52,11 @@ UINT8 is_PV_policy_update(int cmd_code)
 }
 
 void reg_dump () {
-	uart_printf("FIS[0] 0x%x\n", GETREG(SATA_FIS_H2D_0));
-	uart_printf("FIS[1] 0x%x\n", GETREG(SATA_FIS_H2D_1));
-	uart_printf("FIS[2] 0x%x\n", GETREG(SATA_FIS_H2D_2));
-	uart_printf("FIS[3] 0x%x\n", GETREG(SATA_FIS_H2D_3));
-	uart_printf("FIS[4] 0x%x\n", GETREG(SATA_FIS_H2D_4));
+	// uart_printf("FIS[0] 0x%x\n", GETREG(SATA_FIS_H2D_0));
+	// uart_printf("FIS[1] 0x%x\n", GETREG(SATA_FIS_H2D_1));
+	// uart_printf("FIS[2] 0x%x\n", GETREG(SATA_FIS_H2D_2));
+	// uart_printf("FIS[3] 0x%x\n", GETREG(SATA_FIS_H2D_3));
+	// uart_printf("FIS[4] 0x%x\n", GETREG(SATA_FIS_H2D_4));
 }
 
 static UINT32 eveq_init = 1;
@@ -157,7 +157,7 @@ static __inline void queue_push(UINT32 lba, UINT32 sector_count, UINT32 cmd_type
 		
 		eve_q[eveq_rear].lba=lba;
 		eve_q[eveq_rear].sector_count = sector_count;
-		eveq[eveq_rear].cmd_type = cmd_type;
+		eve_q[eveq_rear].cmd_type = cmd_type;
 		eve_q[eveq_rear].r_meta = r_meta;
 		
 		// if (cmd_type == WRITE || cmd_type == READ) {
@@ -191,7 +191,7 @@ static __inline void handle_got_cfis(void)
 		// fid(MSB 2 bytes) + time(LSB2 bytes)
 		r_meta = GETREG(SATA_FIS_H2D_4);
 
-	uart_printf("handle_got_cfis :: cmd_code : %x\n", cmd_code);
+	// uart_printf("handle_got_cfis :: cmd_code : %x\n", cmd_code);
 	
 	if (cmd_type & ATR_LBA_NOR)
 	{
